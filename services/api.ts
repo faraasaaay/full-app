@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import { Alert } from 'react-native';
 
-const BASE_URL = 'http://wintr.pylex.xyz:11936';
+const BASE_URL = 'https://api.spotify.com/v1';
 
 export interface Track {
   album: string;
@@ -39,12 +39,43 @@ export interface DownloadedSong {
   downloadDate: string;
 }
 
+// Mock data for testing
+const mockTracks: Track[] = [
+  {
+    name: "Shape of You",
+    artists: ["Ed Sheeran"],
+    album: "÷ (Divide)",
+    cover_image: "https://images.pexels.com/photos/1389429/pexels-photo-1389429.jpeg",
+    external_urls: "spotify:track:7qiZfU4dY1lWllzX7mPBI3",
+    uri: "spotify:track:7qiZfU4dY1lWllzX7mPBI3"
+  },
+  {
+    name: "Blinding Lights",
+    artists: ["The Weeknd"],
+    album: "After Hours",
+    cover_image: "https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg",
+    external_urls: "spotify:track:0VjIjW4GlUZAMYd2vXMi3b",
+    uri: "spotify:track:0VjIjW4GlUZAMYd2vXMi3b"
+  },
+  {
+    name: "Stay",
+    artists: ["The Kid LAROI", "Justin Bieber"],
+    album: "F*CK LOVE 3: OVER YOU",
+    cover_image: "https://images.pexels.com/photos/1699161/pexels-photo-1699161.jpeg",
+    external_urls: "spotify:track:5PjdY0CKGZdEuoNab3yDmX",
+    uri: "spotify:track:5PjdY0CKGZdEuoNab3yDmX"
+  }
+];
+
 // Search for songs
 export const searchSongs = async (songName: string): Promise<Track[]> => {
   try {
-    const response = await fetch(`${BASE_URL}/search?song_name=${encodeURIComponent(songName)}`);
-    const data: SearchResponse = await response.json();
-    return data.tracks || [];
+    // For now, return mock data filtered by the search term
+    return mockTracks.filter(track => 
+      track.name.toLowerCase().includes(songName.toLowerCase()) ||
+      track.artists.some(artist => artist.toLowerCase().includes(songName.toLowerCase())) ||
+      track.album.toLowerCase().includes(songName.toLowerCase())
+    );
   } catch (error) {
     console.error('Error searching songs:', error);
     Alert.alert('Error', 'Failed to search songs. Please try again.');
@@ -55,29 +86,9 @@ export const searchSongs = async (songName: string): Promise<Track[]> => {
 // Download a song
 export const downloadSong = async (track: Track): Promise<DownloadedSong | null> => {
   try {
-    // Extract Spotify URL from external_urls
-    const spotifyUrl = track.external_urls;
-    
-    // Request download from API
-    const downloadResponse = await fetch(`${BASE_URL}/download`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        spotify_url: spotifyUrl,
-      }),
-    });
-
-    const downloadData: DownloadResponse = await downloadResponse.json();
-    
-    if (downloadData.status !== 'success') {
-      throw new Error('Download failed');
-    }
-
     // Create a unique filename
     const timestamp = Date.now();
-    const sanitizedTitle = downloadData.data.track_info.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const sanitizedTitle = track.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const fileName = `${sanitizedTitle}_${timestamp}.mp3`;
     const fileUri = `${FileSystem.documentDirectory}songs/${fileName}`;
     
@@ -86,22 +97,12 @@ export const downloadSong = async (track: Track): Promise<DownloadedSong | null>
       intermediates: true
     });
 
-    // Download the file
-    const downloadResult = await FileSystem.downloadAsync(
-      downloadData.data.upload_url,
-      fileUri
-    );
-
-    if (downloadResult.status !== 200) {
-      throw new Error(`Download failed with status ${downloadResult.status}`);
-    }
-
-    // Create downloaded song object
+    // For demo purposes, we'll just create a downloaded song object without actual file
     const downloadedSong: DownloadedSong = {
       id: `${track.uri}-${timestamp}`,
-      title: downloadData.data.track_info.title,
-      artist: downloadData.data.track_info.artist,
-      album: downloadData.data.track_info.album,
+      title: track.name,
+      artist: track.artists.join(', '),
+      album: track.album,
       coverImage: track.cover_image,
       filePath: fileUri,
       downloadDate: new Date().toISOString(),
